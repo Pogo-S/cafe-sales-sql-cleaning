@@ -142,8 +142,8 @@ LIMIT 20;
 UPDATE cleaning_sales
 SET `Total Spent` = FORMAT(quantity * `Price Per Unit`,1 );
 
-Select `Total Spent`
-from cleaning_sales;
+SELECT `Total Spent`
+FROM cleaning_sales;
 
 -- As our `Price Per Unit` is of type DOUBLE and `Total Spent` is TEXT by default, 
 # it's important to convert them to DECIMAL for accurate financial analysis.
@@ -161,5 +161,32 @@ MODIFY COLUMN `Price Per Unit` DECIMAL(5,2);
 -- Modifying `Total Spent` to DECIMAL(5,2)
 ALTER TABLE cleaning_sales
 MODIFY COLUMN `Total Spent` DECIMAL(5,2);
+-- 🔍 Exploring distinct values in remaining columns
+SELECT DISTINCT(`Payment Method`) FROM cleaning_sales;
+SELECT DISTINCT(Location) FROM cleaning_sales;
+SELECT DISTINCT(`Transaction Date`) FROM cleaning_sales;
 
-DESCRIBE cleaning_sales;
+-- Observation:
+# These columns were already cleaned earlier — placeholders like 'Unknown', 'Error', and empty strings were replaced with NULL.
+# Now only valid values or NULL remain.
+
+# 'Payment Method' includes: 'Credit Card', 'Cash', 'Digital Wallet', and NULL.
+# 'Location' includes: 'In-store', 'Takeaway', and NULL.
+# 'Transaction Date' values are already in the correct 'YYYY-MM-DD' format, with only NULLs remaining.
+
+-- Converting `Transaction Date` from TEXT to DATE datatype for better date-based analysis
+ALTER TABLE cleaning_sales
+MODIFY COLUMN `Transaction Date` DATE;
+
+-- Final check to confirm changes
+SELECT * FROM cleaning_sales;
+DESC cleaning_sales;
+
+
+--  Data cleaning complete!
+/* 
+- All placeholder values handled
+- Nulls filled where applicable
+- Data types standardized for accuracy
+- Table `cleaning_sales` is now ready for analysis and visualization
+*/
