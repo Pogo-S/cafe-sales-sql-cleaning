@@ -1,8 +1,8 @@
--- Raw data
+-- Raw data :
 SELECT * 
 FROM dirty_cafe_sales;
 
--- Creating a duplicate table to keep the raw data safe
+-- Creating a backup of raw data to preserve original records :
 
 CREATE TABLE `cleaning_sales` (
   `Transaction ID` text,
@@ -22,12 +22,13 @@ FROM dirty_cafe_sales;
 SELECT *
 from cleaning_sales;
 
--- removing duplicates
+-- removing duplicates :
+
 SELECT COUNT(DISTINCT `Transaction ID`), COUNT(`Transaction ID`)
 FROM cleaning_sales;
--- skipped, since all values in 'Transaction ID' are already unique
+# Checked 'Transaction ID' is already unique, so skipping de-duplication
 
--- replacing placeholder values like 'ERROR', 'UNKNOWN', and empty strings or 0 in numberic columns with NULLs
+-- replacing placeholder values like 'ERROR', 'UNKNOWN', or empty strings with NULLs :
 
 WITH Placeholder_values AS
 (
@@ -55,21 +56,23 @@ Set
 select *
 from cleaning_sales;
 
-# Handling Missing Values which can be filled
--- used the one-to-one relationship between item and price to fill missing items, except where the price maps to multiple items
+-- Handling Missing Values which can be filled :
+
+# used the one-to-one relationship between item and price to fill missing items, except where the price maps to multiple items
 SELECT distinct(item),`price per unit`
 FROM cleaning_sales;
 
-/* 
+/*  For my personal reference
 Coffee 2 
 Cake 3
+Juice 3
 Cookie 1
 Salad 5
 Smoothie 4
 Sandwich 4
-Juice 3
 Tea 1.5
 */
+
 # Checking 
 WITH chck as 
 (
@@ -88,7 +91,7 @@ where
 from chck
 order by item;
 
--- imputing missing item values using price-based logic where price uniquely identifies the item
+# Filling missing 'Item' names using known 1:1 mappings with 'Price Per Unit'
 UPDATE cleaning_sales
 SET item = CASE 
 	WHEN item is null and `price per unit` = 1 THEN "Cookie"
@@ -98,4 +101,65 @@ SET item = CASE
     ELSE item
 END;
 
--- 🕓 Progress checkpoint: 4:50 AM (3 July 2025)
+/*
+NOTE : For prices like 3 and 4, multiple items share the same price (e.g: Cake/Juice and Sandwich/Smoothie)
+	   because of this one-to-many relationship, it's not possible to accurately fill the missing item names using price alone.
+	   These rows have been left as NULL to preserve data integrity and avoid incorrect assumptions.
+*/
+
+
+SELECT *
+FROM cleaning_sales; 
+
+-- Filling missing 'Total Spent' values using Quantity × Price Per Unit
+# checking is there any null value for `Quantity` and we do know for `price per unit` from out last steps
+Select Quantity
+FROM cleaning_sales
+WHERE Quantity IS NULL;
+
+# checking how many null values are there in `total spend`
+SELECT COUNT(*) 
+FROM cleaning_sales
+WHERE `Total Spent` IS NULL;
+# Result: 462 missing values
+
+-- Imputed 462 missing 'Total Spent' values using Quantity × Price Per Unit to maintain consistency and enable accurate financial analysis
+
+-- Previewing what the expected 'Total Spent' should look like
+-- This step confirms our formula is working before we update anything
+SELECT 
+  Item, 
+  Quantity,
+  `Price Per Unit`,
+  `Total Spent`, 
+  FORMAT(Quantity * `Price Per Unit`, 1) AS Expected_Total
+FROM cleaning_sales
+WHERE `Total Spent` IS NULL
+LIMIT 20;
+
+#Updating
+# Applies to all rows; only mismatched or null values get updated
+UPDATE cleaning_sales
+SET `Total Spent` = FORMAT(quantity * `Price Per Unit`,1 );
+
+Select `Total Spent`
+from cleaning_sales;
+
+-- As our `Price Per Unit` is of type DOUBLE and `Total Spent` is TEXT by default, 
+# it's important to convert them to DECIMAL for accurate financial analysis.
+
+SELECT *
+FROM cleaning_sales
+WHERE CAST(`Price Per Unit` AS DECIMAL(5,2)) IS NULL
+   OR CAST(`Total Spent` AS DECIMAL(5,2)) IS NULL;
+# Result: 0 rows returned — safe to proceed.
+
+-- Modifying `Price Per Unit` to DECIMAL(5,2)
+ALTER TABLE cleaning_sales
+MODIFY COLUMN `Price Per Unit` DECIMAL(5,2);
+
+-- Modifying `Total Spent` to DECIMAL(5,2)
+ALTER TABLE cleaning_sales
+MODIFY COLUMN `Total Spent` DECIMAL(5,2);
+
+DESCRIBE cleaning_sales;
